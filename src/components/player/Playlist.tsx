@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlaylistItem } from './PlaylistItem';
 import { AudioTrimmer } from './AudioTrimmer';
+import { Shuffle } from "lucide-react";
+import { Settings } from './Settings';
 
 interface PlaylistProps {
   playlist: Array<{
@@ -24,6 +26,10 @@ interface PlaylistProps {
     file: File;
   }>) => void;
   onPause: () => void;
+  useCountdown: boolean;
+  setUseCountdown: (use: boolean) => void;
+  countdownMedia: File | null;
+  setCountdownMedia: (file: File | null) => void;
 }
 
 export function Playlist({
@@ -35,6 +41,10 @@ export function Playlist({
   onDeleteSong,
   onPlaylistUpdate,
   onPause,
+  useCountdown,
+  setUseCountdown,
+  countdownMedia,
+  setCountdownMedia,
 }: PlaylistProps) {
   const [trimmerOpen, setTrimmerOpen] = useState(false);
   const [selectedFileForTrim, setSelectedFileForTrim] = useState<{
@@ -74,7 +84,30 @@ export function Playlist({
 
   return (
     <div className="mt-8">
-      <h2 className="text-xl font-semibold mb-4">播放列表</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">播放列表</h2>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              const shuffledPlaylist = [...playlist]
+                .map(value => ({ value, sort: Math.random() }))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({ value }) => value);
+              onPlaylistUpdate(shuffledPlaylist);
+            }}
+          >
+            <Shuffle className="h-4 w-4" />
+          </Button>
+          <Settings 
+            useCountdown={useCountdown}
+            onUseCountdownChange={setUseCountdown}
+            countdownMedia={countdownMedia}
+            onCountdownMediaChange={setCountdownMedia}
+          />
+        </div>
+      </div>
       
       <div className="mb-4">
         <input

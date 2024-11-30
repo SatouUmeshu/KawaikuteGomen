@@ -4,6 +4,7 @@ import { PlaybackControls } from './PlaybackControls';
 import { ProgressBar } from './ProgressBar';
 import { Playlist } from './Playlist';
 import { AudioVisualizer } from './AudioVisualizer';
+import { Settings } from './Settings';
 
 declare global {
   interface Window {
@@ -28,6 +29,12 @@ export function MusicPlayer() {
   const animationFrameRef = useRef<number>();
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [colorTransition, setColorTransition] = useState(0);
+  const [playedSongs, setPlayedSongs] = useState<Set<string>>(new Set());
+  const handleSongEndRef = useRef<() => void>();
+  const [useCountdown, setUseCountdown] = useState(false);
+  const autoPlayTimerRef = useRef<NodeJS.Timeout>();
+  const [countdownMedia, setCountdownMedia] = useState<File | null>(null);
+  const countdownAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const updateProgress = useCallback(() => {
     if (audio) {
@@ -86,7 +93,7 @@ export function MusicPlayer() {
     }
   };
 
-  const playAudio = async (file: File) => {
+  const playAudio = useCallback(async (file: File) => {
     // 先暂停当前播放
     if (audio) {
       audio.pause();
@@ -131,13 +138,14 @@ export function MusicPlayer() {
       const analyserNode = ctx.createAnalyser();
       analyserNode.fftSize = 256;
 
-      // 更新分析器状态
+      // 更新分析状态
       setAnalyser(null);
       await new Promise(resolve => setTimeout(resolve, 10));
       setAnalyser(analyserNode);
 
       // 创建和准备新的音频实例
       const newAudio = new Audio(URL.createObjectURL(file));
+      newAudio.addEventListener('ended', () => handleSongEndRef.current?.());
       
       // 获取音频时长
       await new Promise(resolve => {
@@ -161,7 +169,7 @@ export function MusicPlayer() {
     } catch (error) {
       console.error('播放音频时出错:', error);
     }
-  };
+  }, [audio, currentSong]);
 
   // 清理函数
   useEffect(() => {
@@ -241,6 +249,15 @@ export function MusicPlayer() {
     file: File;
   }>) => {
     setPlaylist(updatedPlaylist);
+    // 暂停当前播放
+    if (audio) {
+      audio.pause();
+      setIsPlaying(false);
+    }
+    // 播放新的第一首歌
+    if (updatedPlaylist.length > 0) {
+      playAudio(updatedPlaylist[0].file);
+    }
   };
 
   const handlePause = useCallback(() => {
@@ -250,10 +267,86 @@ export function MusicPlayer() {
     }
   }, [audio, isPlaying]);
 
+  const handleSongEnd = useCallback(() => {
+    if (currentSong) {
+      setPlayedSongs(prev => new Set(prev).add(currentSong));
+    }
+
+    const currentIndex = playlist.findIndex(song => song.title === currentSong);
+    const remainingSongs = playlist.slice(currentIndex + 1)
+      .filter(song => !playedSongs.has(song.title));
+
+    const playNextSong = () => {
+      if (remainingSongs.length > 0) {
+        playAudio(remainingSongs[0].file);
+      } else if (playedSongs.size < playlist.length) {
+        const firstUnplayed = playlist
+          .find(song => !playedSongs.has(song.title));
+        if (firstUnplayed) {
+          playAudio(firstUnplayed.file);
+        }
+      } else {
+        setPlayedSongs(new Set());
+        setIsPlaying(false);
+      }
+    };
+
+    if (countdownMedia && useCountdown) {
+      if (countdownAudioRef.current) {
+        countdownAudioRef.current.src = URL.createObjectURL(countdownMedia);
+        countdownAudioRef.current.play();
+        // 使用媒体文件的实际时长作为倒计时
+        countdownAudioRef.current.onloadedmetadata = () => {
+          const duration = countdownAudioRef.current?.duration || 0;
+          autoPlayTimerRef.current = setTimeout(playNextSong, duration * 1000);
+        };
+      }
+    } else {
+      playNextSong();
+    }
+  }, [currentSong, playlist, playedSongs, playAudio, countdownMedia, useCountdown]);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 当播放列表更新时，重置已播放歌曲列表
+  useEffect(() => {
+    setPlayedSongs(new Set());
+  }, [playlist]);
+
+  useEffect(() => {
+    handleSongEndRef.current = handleSongEnd;
+  }, [handleSongEnd]);
+
+  useEffect(() => {
+    countdownAudioRef.current = new Audio();
+    
+    return () => {
+      if (countdownAudioRef.current) {
+        countdownAudioRef.current.pause();
+        countdownAudioRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div className="container mx-auto p-8">
       <div className="max-w-2xl mx-auto bg-card rounded-lg p-6 shadow-lg">
-        <h1 className="text-2xl font-bold mb-6">音乐控制面板</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">音乐控制面板</h1>
+          <Settings 
+            useCountdown={useCountdown}
+            onUseCountdownChange={setUseCountdown}
+            countdownMedia={countdownMedia}
+            onCountdownMediaChange={setCountdownMedia}
+          />
+        </div>
         
         <div className="space-y-6">
           <PlaybackControls 
@@ -272,6 +365,10 @@ export function MusicPlayer() {
           <Playlist 
             playlist={playlist}
             currentSong={currentSong}
+            useCountdown={useCountdown}
+            setUseCountdown={setUseCountdown}
+            countdownMedia={countdownMedia}
+            setCountdownMedia={setCountdownMedia}
             onFileUpload={handleFileUpload}
             onSongSelect={playAudio}
             canvasRef={canvasRef}

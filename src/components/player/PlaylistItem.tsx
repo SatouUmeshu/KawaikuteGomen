@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Trash2, Share2, Download, MoreVertical } from "lucide-react";
+import { Trash2, Scissors, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,19 +102,12 @@ export function PlaylistItem({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onTrim}>
-            裁剪音乐
+            <Scissors className="mr-2 h-4 w-4" />
+            <span>裁剪音乐</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
             <span>从列表中删除</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Share2 className="mr-2 h-4 w-4" />
-            <span>分享</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Download className="mr-2 h-4 w-4" />
-            <span>下载</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
