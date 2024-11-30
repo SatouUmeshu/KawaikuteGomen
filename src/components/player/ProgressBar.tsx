@@ -28,7 +28,8 @@ export function ProgressBar({ progress, currentTime, duration, onProgressChange 
         value={[progress]}
         onValueChange={(value) => onProgressChange(value[0])}
         max={100}
-        step={1}
+        step={0.01}
+        className="transition-all duration-200 ease-out"
       />
     </div>
   );

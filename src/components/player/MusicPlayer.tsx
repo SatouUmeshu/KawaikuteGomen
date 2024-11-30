@@ -32,15 +32,18 @@ export function MusicPlayer() {
   const updateProgress = useCallback(() => {
     if (audio) {
       const progress = (audio.currentTime / audio.duration) * 100;
-      setProgress(Math.round(progress));
+      setProgress(progress);
+      animationFrameRef.current = requestAnimationFrame(updateProgress);
     }
   }, [audio]);
 
   useEffect(() => {
     if (audio) {
-      audio.addEventListener('timeupdate', updateProgress);
+      animationFrameRef.current = requestAnimationFrame(updateProgress);
       return () => {
-        audio.removeEventListener('timeupdate', updateProgress);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
       };
     }
   }, [audio, updateProgress]);
