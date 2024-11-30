@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { MoreHorizontal, Trash2, Share2, Download } from "lucide-react";
+import { Trash2, Share2, Download, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ interface PlaylistItemProps {
   onSelect: () => void;
   canvasRef?: React.RefObject<HTMLCanvasElement>;
   onDelete?: () => void;
+  onTrim: () => void;
 }
 
 export function PlaylistItem({
@@ -28,6 +29,7 @@ export function PlaylistItem({
   onSelect,
   canvasRef,
   onDelete,
+  onTrim,
 }: PlaylistItemProps) {
   const [showCanvas, setShowCanvas] = React.useState(false);
 
@@ -95,10 +97,13 @@ export function PlaylistItem({
             size="icon"
             className="h-8 w-8"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onTrim}>
+            裁剪音乐
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={onDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
             <span>从列表中删除</span>

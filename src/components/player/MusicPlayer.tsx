@@ -234,6 +234,22 @@ export function MusicPlayer() {
     }
   };
 
+  const handlePlaylistUpdate = (updatedPlaylist: Array<{
+    id: string;
+    title: string;
+    artist: string;
+    file: File;
+  }>) => {
+    setPlaylist(updatedPlaylist);
+  };
+
+  const handlePause = useCallback(() => {
+    if (audio && isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    }
+  }, [audio, isPlaying]);
+
   return (
     <div className="container mx-auto p-8">
       <div className="max-w-2xl mx-auto bg-card rounded-lg p-6 shadow-lg">
@@ -260,6 +276,8 @@ export function MusicPlayer() {
             onSongSelect={playAudio}
             canvasRef={canvasRef}
             onDeleteSong={handleDeleteSong}
+            onPlaylistUpdate={handlePlaylistUpdate}
+            onPause={handlePause}
           />
 
           <AudioVisualizer 
