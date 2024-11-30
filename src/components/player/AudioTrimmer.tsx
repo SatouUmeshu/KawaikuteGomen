@@ -1,10 +1,11 @@
 'use client';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import audioBufferToWav from 'audiobuffer-to-wav';
 import { WaveformDisplay } from './WaveformDisplay';
+import { TimeInput } from './TimeInput';
+import { Loader2 } from "lucide-react";
 
 interface AudioTrimmerProps {
   file: File;
@@ -15,52 +16,68 @@ interface AudioTrimmerProps {
 }
 
 export function AudioTrimmer({ file, isOpen, onClose, onSave, onDialogOpen }: AudioTrimmerProps) {
-  const [startTime, setStartTime] = useState(0);
-  const [endTime, setEndTime] = useState(100);
-  const [duration, setDuration] = useState(0);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [endTime, setEndTime] = useState<number>(100);
+  const [duration, setDuration] = useState<number>(0);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
-  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState<boolean>(false);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
-  const [previewTime, setPreviewTime] = useState(0);
+  const [previewTime, setPreviewTime] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 使用 useRef 来存储 requestAnimationFrame 的 ID
+  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
-    if (isOpen) {
-      onDialogOpen?.();
-      
-      // 创建音频上下文和预览音频
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const audio = new Audio(URL.createObjectURL(file));
-      
-      // 加载音频缓冲区用于波形显示
-      file.arrayBuffer()
-        .then(buffer => audioContext.decodeAudioData(buffer))
-        .then(decodedBuffer => {
-          setAudioBuffer(decodedBuffer);
-        })
-        .catch(error => {
-          console.error('加载音频数据失败:', error);
-        });
+    if (file && isOpen) {
+      setIsLoading(true);
+      const loadAudio = async () => {
+        try {
+          // 创建音频上下文和预览音频
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const arrayBuffer = await file.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          setAudioBuffer(audioBuffer);
+          setDuration(audioBuffer.duration);
+          
+          const audio = new Audio(URL.createObjectURL(file));
+          setPreviewAudio(audio);
+        } catch (error) {
+          console.error('音频加载失败:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
 
-      audio.addEventListener('loadedmetadata', () => {
-        setDuration(audio.duration);
-      });
-      setPreviewAudio(audio);
+      loadAudio();
+    }
+  }, [file, isOpen]);
+
+  // 更新预览时间的函数
+  useEffect(() => {
+    if (previewAudio && isPreviewPlaying) {
+      const updateTime = () => {
+        setPreviewTime(previewAudio.currentTime);
+        animationFrameRef.current = requestAnimationFrame(updateTime);
+      };
+      animationFrameRef.current = requestAnimationFrame(updateTime);
 
       return () => {
-        audio.pause();
-        audio.src = '';
-        setPreviewAudio(null);
-        setAudioBuffer(null);
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
       };
     }
-  }, [file, isOpen, onDialogOpen]);
+  }, [previewAudio, isPreviewPlaying]);
 
-  const formatTime = (percentage: number) => {
-    const seconds = (percentage / 100) * duration;
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // 清理函数
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   const handleTrim = async () => {
     const audioContext = new AudioContext();
@@ -134,15 +151,6 @@ export function AudioTrimmer({ file, isOpen, onClose, onSave, onDialogOpen }: Au
     }
   };
 
-  // 更新预览时间
-  useEffect(() => {
-    if (previewAudio) {
-      previewAudio.addEventListener('timeupdate', () => {
-        setPreviewTime(previewAudio.currentTime);
-      });
-    }
-  }, [previewAudio]);
-
   // 阻止事件冒泡
   const handleDialogKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -169,9 +177,49 @@ export function AudioTrimmer({ file, isOpen, onClose, onSave, onDialogOpen }: Au
         
         <div className="space-y-6 py-4">
           <div className="space-y-4">
-            {/* 波形显示 */}
-            {audioBuffer && (
-              <div className="border rounded-md p-4 bg-background">
+            {/* 开始和结束时间控制 */}
+            {audioBuffer && !isLoading && (
+              <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="opacity-50">开始</span>
+                  <TimeInput
+                    time={(startTime / 100) * duration}
+                    onChange={(newTime) => {
+                      const newPercentage = (newTime / duration) * 100;
+                      if (newPercentage < endTime) {
+                        setStartTime(newPercentage);
+                        if (previewTime < newTime) {
+                          if (previewAudio) {
+                            previewAudio.currentTime = newTime;
+                            setPreviewTime(newTime);
+                          }
+                        }
+                      }
+                    }}
+                    max={duration}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="opacity-50">结束</span>
+                  <TimeInput
+                    time={(endTime / 100) * duration}
+                    onChange={(newTime) => {
+                      const newPercentage = (newTime / duration) * 100;
+                      if (newPercentage > startTime) {
+                        setEndTime(newPercentage);
+                      }
+                    }}
+                    max={duration}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 波形显示区域 - 移除圆角和边框 */}
+            <div className="bg-background h-[150px] flex items-center justify-center">
+              {isLoading ? (
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              ) : audioBuffer ? (
                 <WaveformDisplay
                   audioBuffer={audioBuffer}
                   startPercentage={startTime}
@@ -180,47 +228,49 @@ export function AudioTrimmer({ file, isOpen, onClose, onSave, onDialogOpen }: Au
                   duration={duration}
                   onPlayPause={handlePreview}
                   onSeek={handleSeek}
-                />
-              </div>
-            )}
-
-            {/* 开始时间滑块 */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>开始时间</span>
-                <span>{formatTime(startTime)}</span>
-              </div>
-              <Slider
-                value={[startTime]}
-                onValueChange={([value]) => {
-                  if (value < endTime) {
+                  onStartPercentageChange={value => {
                     setStartTime(value);
-                    if (previewAudio && isPreviewPlaying) {
-                      previewAudio.currentTime = (value / 100) * duration;
+                    if (previewTime < (value / 100) * duration) {
+                      const newTime = (value / 100) * duration;
+                      if (previewAudio) {
+                        previewAudio.currentTime = newTime;
+                        setPreviewTime(newTime);
+                      }
                     }
-                  }
-                }}
-                max={100}
-                step={0.1}
-              />
+                  }}
+                  onEndPercentageChange={value => setEndTime(value)}
+                />
+              ) : null}
             </div>
 
-            {/* 结束时间滑块 */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>结束时间</span>
-                <span>{formatTime(endTime)}</span>
-              </div>
-              <Slider
-                value={[endTime]}
-                onValueChange={([value]) => {
-                  if (value > startTime) {
-                    setEndTime(value);
+            {/* 当前时间和总时长显示 */}
+            <div className="flex justify-between items-center px-1">
+              <TimeInput
+                time={previewTime}
+                onChange={(newTime) => {
+                  if (previewAudio) {
+                    const startTimeSeconds = (startTime / 100) * duration;
+                    const endTimeSeconds = (endTime / 100) * duration;
+                    const constrainedTime = Math.max(startTimeSeconds, Math.min(endTimeSeconds, newTime));
+                    previewAudio.currentTime = constrainedTime;
+                    setPreviewTime(constrainedTime);
                   }
                 }}
-                max={100}
-                step={0.1}
+                max={duration}
               />
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span className="opacity-50">选区时长</span>
+                <TimeInput
+                  time={(endTime - startTime) / 100 * duration}
+                  onChange={(newDuration) => {
+                    const newEndPercentage = ((newDuration / duration) * 100) + startTime;
+                    if (newEndPercentage <= 100) {
+                      setEndTime(newEndPercentage);
+                    }
+                  }}
+                  max={duration}
+                />
+              </div>
             </div>
 
             {/* 预览按钮 */}
@@ -229,13 +279,8 @@ export function AudioTrimmer({ file, isOpen, onClose, onSave, onDialogOpen }: Au
               onClick={handlePreview}
               className="w-full"
             >
-              {isPreviewPlaying ? "停止预览" : "预览"}
+              {isPreviewPlaying ? "暂停" : "播放"}
             </Button>
-
-            {/* 总时长显示 */}
-            <div className="text-sm text-muted-foreground text-right">
-              总时长：{formatTime(endTime - startTime)}
-            </div>
           </div>
           
           <div className="flex justify-end space-x-2">
