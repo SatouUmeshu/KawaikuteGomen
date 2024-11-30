@@ -15,6 +15,7 @@ interface PlaylistProps {
   onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onSongSelect: (file: File) => void;
   canvasRef: React.RefObject<HTMLCanvasElement>;
+  onDeleteSong: (songId: string) => void;
 }
 
 export function Playlist({
@@ -22,7 +23,8 @@ export function Playlist({
   currentSong,
   onFileUpload,
   onSongSelect,
-  canvasRef
+  canvasRef,
+  onDeleteSong,
 }: PlaylistProps) {
   return (
     <div className="mt-8">
@@ -46,7 +48,7 @@ export function Playlist({
         </Button>
       </div>
 
-      <ScrollArea className="h-[300px] rounded-md border p-4">
+      <ScrollArea className="h-[300px] rounded-md border p-4 [&>[data-radix-scroll-area-viewport]]:!block [&>[data-radix-scroll-area-viewport]]:!min-w-0 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
         <div className="space-y-4">
           {playlist.map((song, index) => (
             <PlaylistItem
@@ -57,6 +59,7 @@ export function Playlist({
               artist={song.artist}
               isCurrentSong={currentSong === song.title}
               onSelect={() => onSongSelect(song.file)}
+              onDelete={() => onDeleteSong(song.id)}
               canvasRef={currentSong === song.title ? canvasRef : undefined}
             />
           ))}

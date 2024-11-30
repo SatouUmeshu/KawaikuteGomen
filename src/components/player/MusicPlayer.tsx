@@ -217,6 +217,20 @@ export function MusicPlayer() {
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying]);
 
+  const handleDeleteSong = (songId: string) => {
+    setPlaylist(prev => prev.filter(song => song.id !== songId));
+    // 如果删除的是当前播放的歌曲，则停止播放
+    const deletedSong = playlist.find(song => song.id === songId);
+    if (deletedSong && deletedSong.title === currentSong) {
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
+      setIsPlaying(false);
+      setCurrentSong('');
+    }
+  };
+
   return (
     <div className="container mx-auto p-8">
       <div className="max-w-2xl mx-auto bg-card rounded-lg p-6 shadow-lg">
@@ -242,6 +256,7 @@ export function MusicPlayer() {
             onFileUpload={handleFileUpload}
             onSongSelect={playAudio}
             canvasRef={canvasRef}
+            onDeleteSong={handleDeleteSong}
           />
 
           <AudioVisualizer 
