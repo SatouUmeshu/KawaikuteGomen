@@ -19,6 +19,23 @@ export function PlaylistItem({
   onSelect,
   canvasRef
 }: PlaylistItemProps) {
+  const [showCanvas, setShowCanvas] = React.useState(false);
+
+  // 监听 isCurrentSong 的变化
+  React.useEffect(() => {
+    if (isCurrentSong) {
+      // 立即重置状态
+      setShowCanvas(false);
+      // 等待序号隐藏动画完成后再显示频谱
+      const timer = setTimeout(() => {
+        setShowCanvas(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setShowCanvas(false);
+    }
+  }, [isCurrentSong]);
+
   return (
     <div
       className={`flex items-center p-2 rounded-lg hover:bg-accent cursor-pointer ${
@@ -47,8 +64,7 @@ export function PlaylistItem({
             height="30"
             className="absolute transition-opacity duration-300 ease-in-out"
             style={{
-              opacity: isCurrentSong ? '1' : '0',
-              transitionDelay: '300ms'
+              opacity: showCanvas ? '1' : '0'
             }}
           />
         )}
