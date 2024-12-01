@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Music } from "lucide-react";
 import * as mm from 'music-metadata-browser';
 import Image from 'next/image';
@@ -8,16 +8,25 @@ interface AlbumCoverProps {
   currentSong: string;
   isPanelExpanded: boolean;
   currentFile?: File;
+  mediaElement?: HTMLAudioElement | HTMLVideoElement;
 }
 
-export function AlbumCover({ currentSong, isPanelExpanded, currentFile }: AlbumCoverProps) {
+export function AlbumCover({ currentSong, isPanelExpanded, currentFile, mediaElement }: AlbumCoverProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const isVideo = currentFile?.type.startsWith('video/');
 
   useEffect(() => {
     let isMounted = true;
 
     const loadCover = async () => {
       if (!currentFile) {
+        setCoverUrl(null);
+        return;
+      }
+
+      if (isVideo) {
         setCoverUrl(null);
         return;
       }
@@ -47,7 +56,6 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile }: AlbumC
     };
 
     loadCover().then(url => {
-      // 清理之前的 URL
       return () => {
         if (url) {
           URL.revokeObjectURL(url);
@@ -58,7 +66,15 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile }: AlbumC
     return () => {
       isMounted = false;
     };
-  }, [currentFile]);
+  }, [currentFile, isVideo]);
+
+  useEffect(() => {
+    if (isVideo && mediaElement instanceof HTMLVideoElement && videoRef.current) {
+      videoRef.current = mediaElement;
+      videoRef.current.playsInline = true;
+      videoRef.current.controls = false;
+    }
+  }, [isVideo, mediaElement]);
 
   return (
     <div 
@@ -67,7 +83,28 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile }: AlbumC
       }`}
     >
       <div className="aspect-square max-w-[600px] w-full bg-slate-100 rounded-lg flex flex-col items-center justify-center p-8 relative overflow-hidden">
-        {coverUrl ? (
+        {isVideo && mediaElement instanceof HTMLVideoElement ? (
+          <div className="absolute inset-0">
+            <video
+              ref={videoRef}
+              className="w-full h-full object-contain"
+              playsInline
+              controls={false}
+              src={mediaElement.src}
+              muted
+              onLoadedMetadata={() => {
+                if (videoRef.current && mediaElement) {
+                  videoRef.current.currentTime = mediaElement.currentTime;
+                }
+              }}
+              onTimeUpdate={() => {
+                if (videoRef.current && mediaElement) {
+                  videoRef.current.currentTime = mediaElement.currentTime;
+                }
+              }}
+            />
+          </div>
+        ) : coverUrl ? (
           <div className="absolute inset-0">
             <Image 
               src={coverUrl} 
@@ -76,7 +113,6 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile }: AlbumC
               className="object-contain"
               unoptimized
             />
-            {/* 模糊背景 */}
             <div 
               className="absolute inset-0 -z-10" 
               style={{

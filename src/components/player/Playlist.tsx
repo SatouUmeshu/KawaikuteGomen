@@ -112,7 +112,7 @@ export function Playlist({
       <div className="mb-4">
         <input
           type="file"
-          accept="audio/*"
+          accept="audio/*,video/*"
           onChange={onFileUpload}
           className="hidden"
           id="audio-upload"

@@ -78,6 +78,14 @@ export function MusicPlayer() {
     if (audio) {
       const time = (value / 100) * audio.duration;
       audio.currentTime = time;
+      
+      // 如果是视频，同步更新视频的当前时间
+      if (audio instanceof HTMLVideoElement) {
+        const videoElements = document.getElementsByTagName('video');
+        for (const video of videoElements) {
+          video.currentTime = time;
+        }
+      }
     }
   };
 
@@ -150,32 +158,41 @@ export function MusicPlayer() {
       await new Promise(resolve => setTimeout(resolve, 10));
       setAnalyser(analyserNode);
 
-      // 创建和准备新的音频实例
-      const newAudio = new Audio(URL.createObjectURL(file));
-      newAudio.addEventListener('ended', () => handleSongEndRef.current?.());
+      // 根据文件类型创建不同的媒体元素
+      const isVideo = file.type.startsWith('video/');
+      const newMedia = isVideo ? 
+        document.createElement('video') : 
+        new Audio();
+      newMedia.src = URL.createObjectURL(file);
+      newMedia.addEventListener('ended', () => handleSongEndRef.current?.());
       
-      // 获取音频时长
+      if (isVideo && newMedia instanceof HTMLVideoElement) {
+        newMedia.playsInline = true;
+        newMedia.controls = false;
+      }
+
+      // 获取媒体时长
       await new Promise(resolve => {
-        newAudio.addEventListener('loadedmetadata', () => {
-          setDuration(newAudio.duration);
+        newMedia.addEventListener('loadedmetadata', () => {
+          setDuration(newMedia.duration);
           resolve(null);
         }, { once: true });
       });
 
       // 建立音频连接
-      sourceRef.current = ctx.createMediaElementSource(newAudio);
+      sourceRef.current = ctx.createMediaElementSource(newMedia);
       sourceRef.current.connect(analyserNode);
       analyserNode.connect(ctx.destination);
 
       // 开始播放并更新状态
-      await newAudio.play();
-      setAudio(newAudio);
+      await newMedia.play();
+      setAudio(newMedia);
       setCurrentFile(file);
       setCurrentSong(file.name);
       setIsPlaying(true);
 
     } catch (error) {
-      console.error('播放音频时出错:', error);
+      console.error('播放媒体时出错:', error);
     }
   }, [audio, currentSong]);
 
@@ -452,6 +469,7 @@ export function MusicPlayer() {
         currentSong={currentSong}
         isPanelExpanded={isPanelExpanded}
         currentFile={currentFile}
+        mediaElement={audio || undefined}
       />
     </div>
   );
