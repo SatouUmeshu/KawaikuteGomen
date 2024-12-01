@@ -5,6 +5,9 @@ import { ProgressBar } from './ProgressBar';
 import { Playlist } from './Playlist';
 import { AudioVisualizer } from './AudioVisualizer';
 import { Settings } from './Settings';
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AlbumCover } from './AlbumCover';
+import { Button } from "@/components/ui/button";
 
 declare global {
   interface Window {
@@ -35,6 +38,10 @@ export function MusicPlayer() {
   const autoPlayTimerRef = useRef<NodeJS.Timeout>();
   const [countdownMedia, setCountdownMedia] = useState<File | null>(null);
   const countdownAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPanelExpanded, setIsPanelExpanded] = useState(true);
+  const [currentFile, setCurrentFile] = useState<File | undefined>();
+  const [showPanelHint, setShowPanelHint] = useState(true);
+  const [isHoveringEdge, setIsHoveringEdge] = useState(false);
 
   const updateProgress = useCallback(() => {
     if (audio) {
@@ -163,6 +170,7 @@ export function MusicPlayer() {
       // 开始播放并更新状态
       await newAudio.play();
       setAudio(newAudio);
+      setCurrentFile(file);
       setCurrentSong(file.name);
       setIsPlaying(true);
 
@@ -335,56 +343,116 @@ export function MusicPlayer() {
     };
   }, []);
 
+  // 处理鼠标移动事件
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const isNearEdge = e.clientX <= 20;
+      setIsHoveringEdge(isNearEdge);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // 首次展开后隐藏提示
+  useEffect(() => {
+    if (isPanelExpanded) {
+      setShowPanelHint(false);
+    }
+  }, [isPanelExpanded]);
+
   return (
-    <div className="container mx-auto p-8">
-      <div className="max-w-2xl mx-auto bg-card rounded-lg p-6 shadow-lg">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">音乐控制面板</h1>
-          <Settings 
-            useCountdown={useCountdown}
-            onUseCountdownChange={setUseCountdown}
-            countdownMedia={countdownMedia}
-            onCountdownMediaChange={setCountdownMedia}
-          />
-        </div>
-        
-        <div className="space-y-6">
-          <PlaybackControls 
-            isPlaying={isPlaying}
-            currentSong={currentSong}
-            onPlayPause={handlePlayPause}
-          />
+    <div className="flex min-h-screen">
+      {/* 侧边控制面板 */}
+      <div 
+        className={`fixed left-0 top-0 h-full bg-background border-r shadow-lg transition-all duration-300 ${
+          isPanelExpanded ? 'w-[400px]' : 'w-0'
+        }`}
+      >
+        {/* 展开/收起按钮 */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`absolute -right-4 top-1/2 transform -translate-y-1/2 z-10 bg-background border shadow-md transition-opacity duration-300 ${
+            isPanelExpanded || isHoveringEdge ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={() => setIsPanelExpanded(!isPanelExpanded)}
+        >
+          {isPanelExpanded ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </Button>
 
-          <ProgressBar 
-            progress={progress}
-            currentTime={audio?.currentTime || 0}
-            duration={duration}
-            onProgressChange={handleProgressChange}
-          />
+        {/* 首次访问提示 */}
+        {showPanelHint && !isPanelExpanded && (
+          <div className="fixed left-4 top-4 bg-background border rounded-lg shadow-lg p-4 animate-pulse">
+            <p className="text-sm text-muted-foreground">
+              将鼠标移至屏幕左侧边缘<br />可展开控制面板
+            </p>
+          </div>
+        )}
 
-          <Playlist 
-            playlist={playlist}
-            currentSong={currentSong}
-            useCountdown={useCountdown}
-            setUseCountdown={setUseCountdown}
-            countdownMedia={countdownMedia}
-            setCountdownMedia={setCountdownMedia}
-            onFileUpload={handleFileUpload}
-            onSongSelect={playAudio}
-            canvasRef={canvasRef}
-            onDeleteSong={handleDeleteSong}
-            onPlaylistUpdate={handlePlaylistUpdate}
-            onPause={handlePause}
-          />
+        {/* 控制面板内容 */}
+        <div className={`h-full overflow-hidden transition-all duration-300 ${
+          isPanelExpanded ? 'opacity-100 w-full' : 'opacity-0 w-0'
+        }`}>
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold">音乐控制面板</h1>
+              <Settings 
+                useCountdown={useCountdown}
+                onUseCountdownChange={setUseCountdown}
+                countdownMedia={countdownMedia}
+                onCountdownMediaChange={setCountdownMedia}
+              />
+            </div>
+            
+            <PlaybackControls 
+              isPlaying={isPlaying}
+              currentSong={currentSong}
+              onPlayPause={handlePlayPause}
+            />
 
-          <AudioVisualizer 
-            canvasRef={canvasRef}
-            analyser={analyser}
-            isPlaying={isPlaying}
-            colorTransition={colorTransition}
-          />
+            <ProgressBar 
+              progress={progress}
+              currentTime={audio?.currentTime || 0}
+              duration={duration}
+              onProgressChange={handleProgressChange}
+            />
+
+            <Playlist 
+              playlist={playlist}
+              currentSong={currentSong}
+              useCountdown={useCountdown}
+              setUseCountdown={setUseCountdown}
+              countdownMedia={countdownMedia}
+              setCountdownMedia={setCountdownMedia}
+              onFileUpload={handleFileUpload}
+              onSongSelect={playAudio}
+              canvasRef={canvasRef}
+              onDeleteSong={handleDeleteSong}
+              onPlaylistUpdate={handlePlaylistUpdate}
+              onPause={handlePause}
+            />
+
+            <AudioVisualizer 
+              canvasRef={canvasRef}
+              analyser={analyser}
+              isPlaying={isPlaying}
+              colorTransition={colorTransition}
+            />
+          </div>
         </div>
       </div>
+
+      {/* 专辑封面区域 */}
+      <AlbumCover 
+        currentSong={currentSong}
+        isPanelExpanded={isPanelExpanded}
+        currentFile={currentFile}
+      />
     </div>
   );
 }
