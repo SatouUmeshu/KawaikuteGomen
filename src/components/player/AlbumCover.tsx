@@ -70,23 +70,61 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile, mediaEle
 
   useEffect(() => {
     if (isVideo && mediaElement instanceof HTMLVideoElement && videoRef.current) {
-      videoRef.current = mediaElement;
-      videoRef.current.playsInline = true;
-      videoRef.current.controls = false;
+      const video = videoRef.current;
       
-      const handlePlay = () => videoRef.current?.play();
-      const handlePause = () => videoRef.current?.pause();
+      // 同步视频状态的函数
+      const syncVideoState = async () => {
+        if (Math.abs(video.currentTime - mediaElement.currentTime) > 0.1) {
+          video.currentTime = mediaElement.currentTime;
+        }
+        
+        if (!mediaElement.paused && video.paused) {
+          try {
+            // 使用 catch 来处理可能的播放错误
+            await video.play().catch(() => {
+              // 如果播放失败，不抛出错误，只让视频保持暂停状态
+              console.debug('catch 到视频播放被浏览器省电行为阻止');
+            });
+          } catch (error) {
+            console.debug('视频播放出错:', error);
+          }
+        } else if (mediaElement.paused && !video.paused) {
+          video.pause();
+        }
+      };
+
+      // 添加 visibilitychange 事件监听
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          syncVideoState();
+        } else {
+          // 当页面不可见时，主动暂停视频以避免不必要的资源消耗
+          video.pause();
+        }
+      };
+
+      // 定期同步视频状态，但只在页面可见时执行
+      const syncInterval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          syncVideoState();
+        }
+      }, 1000);
       
-      mediaElement.addEventListener('play', handlePlay);
-      mediaElement.addEventListener('pause', handlePause);
-      
-      if (!mediaElement.paused) {
-        videoRef.current.play();
-      }
+      // 添加事件监听
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      mediaElement.addEventListener('play', () => {
+        if (document.visibilityState === 'visible') {
+          syncVideoState();
+        }
+      });
+      mediaElement.addEventListener('pause', () => video.pause());
+      mediaElement.addEventListener('seeking', () => {
+        video.currentTime = mediaElement.currentTime;
+      });
 
       return () => {
-        mediaElement.removeEventListener('play', handlePlay);
-        mediaElement.removeEventListener('pause', handlePause);
+        clearInterval(syncInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
   }, [isVideo, mediaElement]);
@@ -110,9 +148,6 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile, mediaEle
               onLoadedMetadata={() => {
                 if (videoRef.current && mediaElement) {
                   videoRef.current.currentTime = mediaElement.currentTime;
-                  if (!mediaElement.paused) {
-                    videoRef.current.play();
-                  }
                 }
               }}
             />
