@@ -5,7 +5,7 @@ import { ProgressBar } from './ProgressBar';
 import { Playlist } from './Playlist';
 import { AudioVisualizer } from './AudioVisualizer';
 import { Settings } from './Settings';
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, GitBranch } from "lucide-react";
 import { AlbumCover } from './AlbumCover';
 import { Button } from "@/components/ui/button";
 
@@ -382,7 +382,7 @@ export function MusicPlayer() {
     <div className="flex min-h-screen">
       {/* 侧边控制面板 */}
       <div 
-        className={`fixed left-0 top-0 h-full bg-background border-r shadow-lg transition-all duration-300 ${
+        className={`fixed left-0 top-0 h-full bg-background border-r shadow-lg transition-all duration-300 flex flex-col ${
           isPanelExpanded ? 'w-[400px]' : 'w-0'
         }`}
       >
@@ -415,7 +415,7 @@ export function MusicPlayer() {
         <div className={`h-full overflow-hidden transition-all duration-300 ${
           isPanelExpanded ? 'opacity-100 w-full' : 'opacity-0 w-0'
         }`}>
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 flex-1 overflow-auto">
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold">音乐控制面板</h1>
               <Settings 
@@ -460,6 +460,17 @@ export function MusicPlayer() {
               isPlaying={isPlaying}
               colorTransition={colorTransition}
             />
+
+            {isPanelExpanded && (
+              <div className="flex-shrink-0 p-6 pt-0">
+                {process.env.NEXT_PUBLIC_COMMIT_REF && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <GitBranch className="h-3 w-3" />
+                    <span>{process.env.NEXT_PUBLIC_COMMIT_REF.slice(0, 7)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
