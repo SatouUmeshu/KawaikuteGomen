@@ -73,6 +73,21 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile, mediaEle
       videoRef.current = mediaElement;
       videoRef.current.playsInline = true;
       videoRef.current.controls = false;
+      
+      const handlePlay = () => videoRef.current?.play();
+      const handlePause = () => videoRef.current?.pause();
+      
+      mediaElement.addEventListener('play', handlePlay);
+      mediaElement.addEventListener('pause', handlePause);
+      
+      if (!mediaElement.paused) {
+        videoRef.current.play();
+      }
+
+      return () => {
+        mediaElement.removeEventListener('play', handlePlay);
+        mediaElement.removeEventListener('pause', handlePause);
+      };
     }
   }, [isVideo, mediaElement]);
 
@@ -95,11 +110,9 @@ export function AlbumCover({ currentSong, isPanelExpanded, currentFile, mediaEle
               onLoadedMetadata={() => {
                 if (videoRef.current && mediaElement) {
                   videoRef.current.currentTime = mediaElement.currentTime;
-                }
-              }}
-              onTimeUpdate={() => {
-                if (videoRef.current && mediaElement) {
-                  videoRef.current.currentTime = mediaElement.currentTime;
+                  if (!mediaElement.paused) {
+                    videoRef.current.play();
+                  }
                 }
               }}
             />
